@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FEEDING REALISTIC AI</title>
+<style>
+:root{--deep:#12332b;--moss:#2f6b4f;--sand:#f3ecd9;--paper:#fffdf6;--koi:#e8622c;--water:#3a8fa3;--ink:#1b2a24;--line:#d9d0b6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--sand);color:var(--ink);font-family:"Trebuchet MS",Verdana,sans-serif;font-size:16px;line-height:1.5}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;background:var(--deep);color:#fff;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+header h1{font-size:1.05rem;margin:0;letter-spacing:.04em}
+.burger{background:none;border:0;color:#fff;font-size:1.6rem;width:44px;height:44px;cursor:pointer}
+#side{position:fixed;inset:0 auto 0 0;width:260px;max-width:80%;background:var(--deep);color:#fff;z-index:30;transform:translateX(-100%);transition:transform .25s;padding:20px 14px;display:flex;flex-direction:column;gap:8px}
+#side.open{transform:none}
+#shade{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:25;display:none}
+#shade.open{display:block}
+#side button{background:transparent;border:0;color:#fff;text-align:left;font:inherit;padding:14px;border-radius:10px;cursor:pointer}
+#side button.on,#side button:hover{background:var(--moss)}
+main{max-width:980px;margin:0 auto;padding:16px 14px 90px}
+h2{font-size:1.15rem;margin:26px 0 10px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:700px){.grid.animals{grid-template-columns:repeat(5,1fr)}}
+.card{background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:14px 8px;text-align:center;cursor:pointer;font:inherit;color:inherit;min-height:84px;transition:border-color .15s,transform .15s}
+.card .ic{display:block;font-size:2.1rem}
+.card small{display:block;color:#5b665f}
+.card.on{border-color:var(--koi);background:#fff3ea;transform:translateY(-2px)}
+.card:focus-visible,.btn:focus-visible,select:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.form{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:700px){.form{grid-template-columns:repeat(3,1fr)}}
+label{display:block;font-size:.85rem;font-weight:bold;margin-bottom:4px}
+select{width:100%;min-height:48px;border:2px solid var(--line);border-radius:10px;background:var(--paper);font:inherit;padding:0 10px}
+.btn{min-height:52px;border:0;border-radius:12px;font:inherit;font-weight:bold;padding:0 18px;cursor:pointer;background:var(--moss);color:#fff}
+.btn.main{background:var(--koi);font-size:1.05rem;width:100%;margin-top:18px}
+.btn.alt{background:var(--paper);color:var(--ink);border:2px solid var(--line)}
+.btn:disabled{opacity:.6}
+.row{display:grid;gap:8px;grid-template-columns:repeat(2,1fr);margin-top:10px}
+@media(min-width:700px){.row{grid-template-columns:repeat(3,1fr)}}
+.panel{background:var(--paper);border:2px solid var(--line);border-radius:14px;margin-top:22px;overflow:hidden}
+.tabs{display:flex;background:var(--deep)}
+.tabs button{flex:1;min-height:48px;background:none;border:0;color:#cfe3d8;font:inherit;cursor:pointer}
+.tabs button.on{background:var(--moss);color:#fff;font-weight:bold}
+.out{padding:14px;white-space:pre-wrap;word-break:break-word;font-size:.95rem;line-height:1.65;min-height:140px}
+.empty{color:#6a756e}
+#loader{display:none;margin:16px auto;width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--koi);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);background:var(--deep);color:#fff;padding:12px 18px;border-radius:12px;opacity:0;transition:all .25s;z-index:50;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.err{background:#a3321a}
+.help li{margin-bottom:8px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <button class="burger" id="burger" aria-label="Buka menu">&#9776;</button>
+  <h1>FEEDING REALISTIC AI</h1>
+</header>
+<div id="shade"></div>
+<nav id="side">
+  <button class="on" data-view="gen">🐟 Generator Prompt</button>
+  <button data-view="help">📱 Panduan Android</button>
+  <button id="sideReset">↺ Reset semua</button>
+</nav>
+
+<main>
+<section class="view on" id="view-gen">
+  <h2>1. Pilih hewan</h2>
+  <div class="grid animals" id="animals"></div>
+
+  <h2>2. Format video</h2>
+  <div class="grid" id="ratios"></div>
+
+  <h2>3. Pengaturan</h2>
+  <div class="form">
+    <div><label for="dur">Durasi video</label><select id="dur"></select></div>
+    <div><label for="style">Gaya visual</label><select id="style"></select></div>
+    <div><label for="cam">Gerakan kamera</label><select id="cam"></select></div>
+    <div><label for="time">Waktu pengambilan</label><select id="time"></select></div>
+    <div><label for="light">Kondisi pencahayaan</label><select id="light"></select></div>
+    <div><label for="snd">Kondisi suara</label><select id="snd"></select></div>
+    <div><label for="lang">Bahasa prompt</label><select id="lang"><option value="en">English (disarankan)</option><option value="id">Bahasa Indonesia</option></select></div>
+  </div>
+  <button class="btn main" id="gen">GENERATE PROMPT</button>
+  <div id="loader" role="status" aria-label="Memproses"></div>
+
+  <div class="panel">
+    <div class="tabs" id="tabs">
+      <button class="on" data-tab="main">Prompt Utama</button>
+      <button data-tab="neg">Negative Prompt</button>
+      <button data-tab="set">Pengaturan Video</button>
+    </div>
+    <div class="out" id="out"><span class="empty">Pilih hewan dan format, lalu tekan GENERATE PROMPT.</span></div>
+  </div>
+  <div class="row">
+    <button class="btn" id="cMain">SALIN PROMPT</button>
+    <button class="btn" id="cNeg">SALIN NEGATIVE PROMPT</button>
+    <button class="btn" id="cAll">SALIN SEMUA</button>
+    <button class="btn alt" id="vary">BUAT VARIASI</button>
+    <button class="btn alt" id="again">PILIH ULANG HEWAN</button>
+    <button class="btn alt" id="reset">RESET</button>
+  </div>
+</section>
+
+<section class="view" id="view-help">
+  <h2>Cara memakai dari HP Android</h2>
+  <ol class="help">
+    <li>Buka tautan Web App di Chrome.</li>
+    <li>Pilih hewan, format 9:16 atau 16:9, atur opsi, lalu tekan GENERATE PROMPT.</li>
+    <li>Salin prompt dan negative prompt, lalu tempel ke Veo, Sora, Kling, atau generator video lain.</li>
+  </ol>
+  <h2>Menambahkan ke layar utama</h2>
+  <ol class="help">
+    <li>Di Chrome, ketuk menu tiga titik.</li>
+    <li>Pilih <b>Tambahkan ke layar utama</b> (atau <b>Instal aplikasi</b> bila muncul).</li>
+    <li>Ketuk Tambahkan. Ikon akan muncul di layar utama.</li>
+  </ol>
+  <h2>Keterbatasan</h2>
+  <ul class="help">
+    <li>Google Apps Script menjalankan halaman di dalam bingkai, jadi mode fullscreen penuh dan instalasi PWA resmi (service worker) tidak dijamin. Shortcut layar utama tetap berfungsi dan membuka tautan di Chrome.</li>
+    <li>Untuk tampilan lebih lega, gunakan menu Chrome &gt; <b>Situs desktop</b> dimatikan, atau putar layar ke mode lanskap.</li>
+    <li>Aplikasi hanya membuat teks prompt. Resolusi akhir bergantung pada kemampuan generator video yang kamu pakai.</li>
+  </ul>
+</section>
+</main>
+<div id="toast" role="alert"></div>
+
+<script>
+/* ===== Data opsi: [label, English, Indonesia] ===== */
+var OPT = {
+  dur: [5, 8, 10, 15],
+  style: [
+    ["Ultra-realistic", "ultra-realistic, photorealistic textures, true-to-life color", "ultra-realistis, tekstur fotorealistis, warna natural"],
+    ["Realistic smartphone footage", "realistic smartphone footage, natural sensor look, slight real-world imperfection", "rekaman ponsel realistis, tampilan sensor natural"],
+    ["Natural documentary", "natural documentary style, observational and unstaged", "gaya dokumenter natural, apa adanya"],
+    ["Cinematic realism", "cinematic realism, shallow depth of field, restrained color grade", "realisme sinematik, depth of field dangkal"]
+  ],
+  cam: [
+    ["POV stabil", "stable first-person POV camera at chest height", "kamera POV orang pertama stabil setinggi dada"],
+    ["Sedikit handheld natural", "first-person POV with subtle natural handheld sway", "POV orang pertama dengan goyangan handheld halus"],
+    ["Close-up objek", "close-up first-person POV on the hands and animals", "close-up POV pada tangan dan hewan"],
+    ["Medium shot dari sudut pandang orang pertama", "medium first-person POV shot showing hands, animals and surroundings", "medium shot POV memperlihatkan tangan, hewan, dan sekitar"]
+  ],
+  time: [
+    ["Pagi hari", "early morning", "pagi hari"],
+    ["Siang hari", "midday", "siang hari"],
+    ["Sore hari", "late afternoon", "sore hari"],
+    ["Acak otomatis", null, null]
+  ],
+  light: [
+    ["Cahaya alami", "natural daylight", "cahaya alami"],
+    ["Mendung natural", "soft natural overcast light", "cahaya mendung natural"],
+    ["Sinar matahari lembut", "soft gentle sunlight with delicate reflections", "sinar matahari lembut dengan pantulan halus"],
+    ["Pencahayaan dalam ruangan yang realistis", "realistic indoor lighting", "pencahayaan dalam ruangan yang realistis"]
+  ]
+};
+var RATIO = {
+  "9:16": { label: "Vertikal 9:16", note: "TikTok, Shorts, Reels", res: "1080 × 1920",
+    en: "vertical 9:16 composition with the main subject centered in the middle of the tall frame, suited to phone screens",
+    id: "komposisi vertikal 9:16 dengan objek utama di tengah frame tinggi, cocok untuk layar ponsel" },
+  "16:9": { label: "Horizontal 16:9", note: "YouTube, Facebook", res: "1920 × 1080",
+    en: "wide horizontal 16:9 composition showing the full pond, pen or room and the wider environment",
+    id: "komposisi horizontal 16:9 yang memperlihatkan kolam, kandang, atau ruangan dan lingkungan lebih luas" }
+};
+
+/* Tiap hewan: s=lokasi, a=hewan, f=pakan, m=perilaku, d=detail, snd=suara khusus, neg=negative tambahan, v=pool variasi */
+var ANIMALS = {
+  lele: { name: "Ikan Lele", icon: "🐟",
+    s: ["a rectangular tarpaulin catfish farming pond with a sturdy frame, the water naturally a little murky as in real aquaculture", "kolam budidaya lele berbentuk persegi panjang dari terpal dengan rangka kokoh, air alami sedikit keruh seperti budidaya nyata"],
+    a: ["many African catfish (lele) with smooth dark grey-olive skin, flat heads and visible whiskers", "banyak ikan lele berkulit abu-zaitun gelap licin, kepala pipih, dan sungut terlihat"],
+    f: ["small fish pellets scattered by hand and falling onto the water surface", "pelet ikan kecil ditebar dengan tangan dan jatuh ke permukaan air"],
+    m: ["the catfish rush to the surface in an active feeding frenzy, mouths breaking the surface, producing natural ripples and small splashes", "lele berebut ke permukaan dengan aktif, mulut muncul di atas air, menghasilkan riak dan percikan alami"],
+    d: ["wet skin sheen, water droplets, pellets bobbing on ripples, tarp wall texture", "kilau kulit basah, tetesan air, pelet mengambang di riak, tekstur dinding terpal"],
+    snd: ["water splashing and fish gulping pellets at the surface", "percikan air dan ikan menyambar pelet di permukaan"],
+    neg: "glass aquarium, tiled swimming pool, ornamental fish, fish out of water",
+    v: [[["a dense crowd of fish", "kerumunan padat ikan"], ["a moderate group of fish", "sekelompok ikan sedang"], ["a large number of fish", "banyak ikan"]],
+        [["very vigorous movement", "gerakan sangat aktif"], ["steady lively movement", "gerakan lincah stabil"]],
+        [["light breeze rippling the water", "angin ringan menggerakkan air"], ["still air, ripples only from the fish", "udara tenang, riak hanya dari ikan"]]] },
+  nila: { name: "Ikan Nila", icon: "🐠",
+    s: ["a tarpaulin tilapia farming pond with a frame, water looking natural and slightly green", "kolam budidaya nila dari terpal dengan rangka, air terlihat alami sedikit kehijauan"],
+    a: ["many Nile tilapia (nila) with realistic oval bodies, silver-grey scales with faint vertical stripes, and spiny dorsal fins", "banyak ikan nila bertubuh oval realistis, sisik abu-perak dengan garis vertikal samar, dan sirip punggung berduri"],
+    f: ["small floating pellets scattered by hand over the surface", "pelet kecil mengapung ditebar dengan tangan di permukaan"],
+    m: ["the tilapia gather at the surface when pellets land, swimming and nipping pellets with natural ripples", "nila berkumpul di permukaan saat pelet jatuh, berenang dan menyambar pelet dengan riak alami"],
+    d: ["individual scales catching light, translucent fins, ripples, pellets floating", "sisik individual memantulkan cahaya, sirip tembus cahaya, riak, pelet mengapung"],
+    snd: ["gentle water ripples and soft pellet pops at the surface", "riak air lembut dan bunyi pelet disambar di permukaan"],
+    neg: "glass aquarium, tiled pool, catfish whiskers, exaggerated colors",
+    v: [[["a large school of fish", "kawanan besar ikan"], ["a medium school of fish", "kawanan sedang ikan"]],
+        [["energetic movement", "gerakan energik"], ["calm movement", "gerakan tenang"]],
+        [["dappled sunlight on the water", "cahaya matahari berbintik di air"], ["even diffuse light on the water", "cahaya merata di air"]]] },
+  koi: { name: "Ikan Koi", icon: "🎏",
+    s: ["a tarpaulin koi pond with clear water, natural reflections of light and a tidy pond edge", "kolam koi dari terpal dengan air jernih, pantulan cahaya alami, dan tepi kolam rapi"],
+    a: ["healthy koi with natural patterns: red-white (kohaku), black-white, orange and mixed colors, with smooth glossy scales", "koi sehat dengan corak alami: merah-putih, hitam-putih, oranye, dan kombinasi warna, sisik halus mengilap"],
+    f: ["koi pellets sprinkled from the hand, floating and drifting on the surface", "pelet koi ditaburkan dari tangan, mengapung dan hanyut di permukaan"],
+    m: ["koi swim gracefully toward the hand, rise to the surface, open their round mouths and sip pellets", "koi berenang anggun mendekati tangan, naik ke permukaan, membuka mulut bulat dan menyedot pelet"],
+    d: ["light reflections on the water, glossy scales, soft ripples, translucent fins", "pantulan cahaya di air, sisik mengilap, riak lembut, sirip tembus cahaya"],
+    snd: ["soft water ripples and quiet gulps at the surface", "riak air lembut dan suara hap pelan di permukaan"],
+    neg: "muddy water, catfish, goldfish, cartoon koi patterns, unnatural neon colors",
+    v: [[["mostly red-white koi", "dominan koi merah-putih"], ["a mix of red-white, black-white and orange koi", "campuran koi merah-putih, hitam-putih, dan oranye"], ["several large golden-orange koi", "beberapa koi oranye keemasan besar"]],
+        [["about six koi", "sekitar enam koi"], ["about ten koi", "sekitar sepuluh koi"]],
+        [["bright sky reflections", "pantulan langit cerah"], ["soft shaded reflections", "pantulan teduh lembut"]]] },
+  kambing: { name: "Kambing", icon: "🐐",
+    s: ["a realistic goat pen with a wooden slatted floor, sturdy fence, posts and a feeding trough as on a real goat farm", "kandang kambing realistis dengan lantai panggung kayu, pagar kokoh, tiang, dan tempat pakan seperti peternakan nyata"],
+    a: ["a goat with natural anatomy, realistic coat, expressive ears, horns where appropriate for the breed, and a natural head and mouth movement", "kambing berwujud alami, bulu realistis, telinga ekspresif, tanduk sesuai jenisnya, dan gerakan kepala serta mulut wajar"],
+    f: ["fresh green grass or leafy branches held out in the hand", "rumput hijau segar atau ranting berdaun yang dipegang di tangan"],
+    m: ["the goat steps closer, sniffs, grabs the greens with its lips and chews with natural side-to-side jaw motion", "kambing mendekat, mengendus, mengambil dedaunan dengan bibir, dan mengunyah dengan gerakan rahang samping yang natural"],
+    d: ["coat texture, wet nose, grass blades, wood grain, a rural farm atmosphere that looks real and not animated", "tekstur bulu, hidung basah, helai rumput, serat kayu, suasana peternakan yang nyata dan bukan animasi"],
+    snd: ["goat bleats, chewing, hooves on the wooden floor and quiet farm activity", "embikan kambing, suara mengunyah, langkah kaki di lantai kayu, dan aktivitas kandang"],
+    neg: "cartoon goat, extra legs, extra horns, plastic fur, floating grass, empty barren pen",
+    v: [[["napier grass", "rumput gajah"], ["fresh cassava leaves", "daun singkong segar"], ["mixed green forage and leaves", "campuran hijauan dan daun"]],
+        [["a brown goat", "kambing cokelat"], ["a white and brown spotted goat", "kambing belang putih-cokelat"], ["a black goat", "kambing hitam"]],
+        [["two curious goats waiting behind", "dua kambing penasaran menunggu di belakang"], ["a single calm goat", "satu kambing yang tenang"]]] },
+  kucing: { name: "Kucing Lucu", icon: "🐱",
+    loc: [["a sunlit house porch", "teras rumah yang terkena cahaya"], ["a tidy living room floor", "lantai ruang keluarga yang rapi"], ["a home kitchen corner", "sudut dapur rumah"], ["a green garden path", "jalan setapak taman hijau"], ["a cozy corner of the house with a soft mat", "sudut rumah nyaman dengan keset lembut"]],
+    a: ["a cute cat with realistic fur, natural eyes, an endearing expression and typical cat behavior", "kucing lucu dengan bulu realistis, mata alami, ekspresi menggemaskan, dan perilaku kucing wajar"],
+    f: ["cat food, a small suitable fish or a cat treat offered from the hand", "makanan kucing, ikan kecil yang sesuai, atau camilan kucing dari tangan"],
+    m: ["the cat approaches, sniffs the food, then eats with realistic small movements of the mouth and whiskers", "kucing mendekat, mengendus makanan, lalu makan dengan gerakan mulut dan kumis yang realistis"],
+    d: ["individual fur strands, whisker detail, bright reflective eyes, soft ambient light", "helai bulu individual, detail kumis, mata cerah memantul, cahaya sekitar lembut"],
+    snd: ["soft meows, sniffing and eating sounds with quiet home ambience", "suara mengeong lembut, mengendus, dan makan dengan ambience rumah"],
+    neg: "cartoon cat, extra tails, extra ears, human food on the floor, inconsistent room",
+    v: [[["an orange tabby cat", "kucing tabby oranye"], ["a fluffy white cat", "kucing putih berbulu lebat"], ["a grey short-haired cat", "kucing abu-abu berbulu pendek"], ["a black and white tuxedo cat", "kucing tuxedo hitam-putih"], ["a calico cat", "kucing calico"]],
+        [["a small kitten", "anak kucing kecil"], ["an adult cat", "kucing dewasa"]],
+        [["round amber eyes", "mata bulat ambar"], ["wide green eyes", "mata hijau lebar"]]] }
+};
+var BASE_NEG = "cartoon, anime, CGI appearance, artificial textures, unrealistic animal anatomy, deformed hands, extra fingers, missing fingers, extra limbs, duplicate animals, floating food, unnatural movement, inconsistent environment, flickering, warped objects, sudden camera transitions, visible human face, visible human body, visible human reflection, text overlay, subtitles, watermark, logo";
+var ST = { animal: null, ratio: null, tab: "main", pick: [], rt: 0, loc: 0, result: null };
+
+var $ = function (id) { return document.getElementById(id); };
+var rnd = function (n) { return Math.floor(Math.random() * n); };
+var L = function (pair) { return $("lang").value === "id" ? pair[1] : pair[0]; };
+
+/* ===== UI builder ===== */
+function fillSelect(id, list, sound) {
+  $(id).innerHTML = list.map(function (o, i) { return '<option value="' + i + '">' + (Array.isArray(o) ? o[0] : o + " detik") + "</option>"; }).join("");
+}
+function buildUI() {
+  $("animals").innerHTML = Object.keys(ANIMALS).map(function (k) {
+    return '<button class="card" data-animal="' + k + '"><span class="ic">' + ANIMALS[k].icon + "</span>" + ANIMALS[k].name + "</button>";
+  }).join("");
+  $("ratios").innerHTML = Object.keys(RATIO).map(function (k) {
+    var r = RATIO[k];
+    return '<button class="card" data-ratio="' + k + '"><b>' + r.label + "</b><small>" + r.res + " · " + r.note + "</small></button>";
+  }).join("");
+  fillSelect("dur", OPT.dur); $("dur").value = 1;
+  ["style", "cam", "time", "light"].forEach(function (k) { fillSelect(k, OPT[k]); });
+  buildSound();
+}
+function soundList() {
+  var a = ANIMALS[ST.animal];
+  return [["Suara lingkungan asli", "authentic on-location ambient sound", "suara lingkungan asli di lokasi"],
+          [ST.animal === "kambing" ? "Suara kambing dan aktivitas kandang" : ST.animal === "kucing" ? "Suara kucing mengeong dan makan" : ST.animal ? "Suara air dan ikan" : "Suara khusus hewan", a ? a.snd[0] : "animal-specific sounds", a ? a.snd[1] : "suara khusus hewan"],
+          ["Tanpa musik, hanya ambience alami", "no music, only natural ambience", "tanpa musik, hanya ambience alami"]];
+}
+function buildSound() {
+  var cur = $("snd").value || 0;
+  fillSelect("snd", soundList()); $("snd").value = cur;
+}
+
+/* ===== Interaksi ===== */
+function toast(msg, err) {
+  var t = $("toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+  clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, 2200);
+}
+function select(attr, val, group) {
+  document.querySelectorAll("[data-" + attr + "]").forEach(function (b) { b.classList.toggle("on", b.dataset[attr] === val); });
+}
+function pickVariation() {
+  var a = ANIMALS[ST.animal];
+  ST.pick = a.v.map(function (pool) { return rnd(pool.length); });
+  ST.loc = a.loc ? rnd(a.loc.length) : 0;
+  ST.rt = rnd(3);
+}
+function compose() {
+  var a = ANIMALS[ST.animal], R = RATIO[ST.ratio], id = $("lang").value === "id";
+  var o = function (k) { return OPT[k][+$(k).value]; };
+  var dur = OPT.dur[+$("dur").value];
+  var tm = o("time"), timeTxt = tm[1] ? L([tm[1], tm[2]]) : L([OPT.time[ST.rt][1], OPT.time[ST.rt][2]]);
+  var lt = +$("light").value, lightTxt = L([o("light")[1], o("light")[2]]);
+  if (lt === 3 && ST.animal !== "kucing") lightTxt = id ? "cahaya teduh terang seperti di bawah atap" : "bright shaded light as under a roof";
+  var scene = a.loc ? L(a.loc[ST.loc]) : L(a.s);
+  var v = a.v.map(function (pool, i) { return L(pool[ST.pick[i]]); });
+  var snd = soundList()[+$("snd").value], sndTxt = L([snd[1], snd[2]]);
+  var t1 = Math.max(1, Math.round(dur / 3)), t2 = Math.round(dur * 2 / 3);
+  var main;
+  if (!id) {
+    main = o("style")[1] + ", " + dur + "-second first-person POV video.\n\n" +
+      "SCENE: " + scene + ". " + (ST.animal === "kucing" ? "The location stays the same for the entire video. " : "") + "Time: " + timeTxt + ". Lighting: " + lightTxt + ".\n\n" +
+      "SUBJECTS: " + a.a[0] + ". Variation: " + v.join("; ") + ".\n\n" +
+      "HANDS (POV): only the feeder's hands are visible, entering naturally from the bottom or side of the frame, with correct anatomy of five fingers per hand, relaxed natural motion. No face, head, body, legs or reflection of the person is ever visible.\n\n" +
+      "FEEDING ACTION: " + a.f[0] + ". The food truly leaves the hand and falls naturally.\n\n" +
+      "ANIMAL BEHAVIOR: " + a.m[0] + ".\n\n" +
+      "DETAIL: " + a.d[0] + ".\n\n" +
+      "CAMERA: " + o("cam")[1] + ".\n" +
+      "FORMAT: " + R.en + ". Target resolution " + R.res.replace(/ /g, "") + ", ratio " + ST.ratio + ".\n\n" +
+      "TIMELINE: 0-" + t1 + "s hands enter the frame with the food and the animals notice it; " + t1 + "-" + t2 + "s the food is offered and the animals eat; " + t2 + "-" + dur + "s a calm natural finish of the feeding moment, no cut.\n\n" +
+      "SOUND: " + sndTxt + ".\n\n" +
+      "CONSISTENCY: keep the same location, animals, hands, food and lighting unchanged from the first to the last frame. Single continuous shot, no scene cuts.";
+  } else {
+    main = o("style")[2] + ", video POV orang pertama berdurasi " + dur + " detik.\n\n" +
+      "ADEGAN: " + scene + ". " + (ST.animal === "kucing" ? "Lokasi tidak berubah selama video. " : "") + "Waktu: " + timeTxt + ". Pencahayaan: " + lightTxt + ".\n\n" +
+      "OBJEK: " + a.a[1] + ". Variasi: " + v.join("; ") + ".\n\n" +
+      "TANGAN (POV): hanya tangan pemberi makan yang terlihat, masuk natural dari bawah atau samping frame, anatomi lima jari yang benar, gerakan santai dan natural. Tidak ada wajah, kepala, tubuh, kaki, atau pantulan orang yang terlihat.\n\n" +
+      "AKSI MEMBERI MAKAN: " + a.f[1] + ". Pakan benar-benar keluar dari tangan dan jatuh secara natural.\n\n" +
+      "PERILAKU HEWAN: " + a.m[1] + ".\n\n" +
+      "DETAIL: " + a.d[1] + ".\n\n" +
+      "KAMERA: " + o("cam")[2] + ".\n" +
+      "FORMAT: " + R.id + ". Resolusi target " + R.res.replace(/ /g, "") + ", rasio " + ST.ratio + ".\n\n" +
+      "ALUR: detik 0-" + t1 + " tangan masuk membawa pakan dan hewan menyadarinya; " + t1 + "-" + t2 + " pakan diberikan dan hewan makan; " + t2 + "-" + dur + " penutup tenang tanpa cut.\n\n" +
+      "SUARA: " + sndTxt + ".\n\n" +
+      "KONSISTENSI: jaga lokasi, hewan, tangan, pakan, dan cahaya tetap sama dari frame awal sampai akhir. Satu take kontinu, tanpa pindah adegan.";
+  }
+  var neg = BASE_NEG + ", " + a.neg;
+  var set = (id ? "Hewan: " : "Animal: ") + a.name + "\n" + (id ? "Rasio: " : "Ratio: ") + ST.ratio + " (" + R.res + ")\n" +
+    (id ? "Durasi: " : "Duration: ") + dur + " s\n" + (id ? "Gaya: " : "Style: ") + o("style")[0] + "\n" +
+    (id ? "Kamera: " : "Camera: ") + o("cam")[0] + "\n" + (id ? "Waktu: " : "Time: ") + timeTxt + "\n" +
+    (id ? "Cahaya: " : "Light: ") + o("light")[0] + "\n" + (id ? "Suara: " : "Sound: ") + snd[0] + "\n" +
+    (id ? "Lokasi: " : "Location: ") + scene + "\n" + (id ? "Platform: Veo, Sora, Kling, atau sejenis" : "Platform: Veo, Sora, Kling or similar");
+  return { main: main, neg: neg, set: set };
+}
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function ready() {
+  if (!ST.animal) { toast("Pilih hewan terlebih dahulu.", true); return false; }
+  if (!ST.ratio) { toast("Pilih format video 9:16 atau 16:9.", true); return false; }
+  return true;
+}
+function show() {
+  var out = $("out");
+  if (!ST.result) { out.innerHTML = '<span class="empty">Pilih hewan dan format, lalu tekan GENERATE PROMPT.</span>'; return; }
+  out.textContent = ST.result[ST.tab];
+  document.querySelectorAll("#tabs button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === ST.tab); });
+}
+function run(newVariation) {
+  if (!ready()) return;
+  var btn = $("gen"); btn.disabled = true; $("loader").style.display = "block";
+  setTimeout(function () {
+    try {
+      if (newVariation || !ST.pick.length) pickVariation();
+      ST.result = compose(); show();
+      toast(newVariation ? "Variasi baru dibuat." : "Prompt berhasil dibuat.");
+      $("out").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) { toast("Terjadi kesalahan: " + e.message, true); }
+    btn.disabled = false; $("loader").style.display = "none";
+  }, 450);
+}
+function copy(text, msg) {
+  if (!text) { toast("Belum ada prompt. Tekan GENERATE PROMPT dulu.", true); return; }
+  function fallback() {
+    var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta); toast(ok ? msg : "Gagal menyalin. Tahan teks lalu pilih Salin.", !ok);
+  }
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { toast(msg); }, fallback);
+  else fallback();
+}
+function resetAll() {
+  ST = { animal: null, ratio: null, tab: "main", pick: [], rt: 0, loc: 0, result: null };
+  document.querySelectorAll(".card.on").forEach(function (c) { c.classList.remove("on"); });
+  fillSelect("dur", OPT.dur); $("dur").value = 1;
+  ["style", "cam", "time", "light"].forEach(function (k) { $(k).value = 0; });
+  $("lang").value = "en"; buildSound(); $("snd").value = 0; show(); toast("Pengaturan direset.");
+}
+function view(v) {
+  document.querySelectorAll(".view").forEach(function (s) { s.classList.toggle("on", s.id === "view-" + v); });
+  document.querySelectorAll("#side [data-view]").forEach(function (b) { b.classList.toggle("on", b.dataset.view === v); });
+  side(false); window.scrollTo(0, 0);
+}
+function side(open) { $("side").classList.toggle("open", open); $("shade").classList.toggle("open", open); }
+
+/* ===== Event ===== */
+buildUI();
+$("animals").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-animal]"); if (!b) return;
+  ST.animal = b.dataset.animal; ST.pick = []; select("animal", ST.animal); buildSound();
+  if (ST.result && ST.ratio) run(true);
+});
+$("ratios").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-ratio]"); if (!b) return;
+  ST.ratio = b.dataset.ratio; select("ratio", ST.ratio);
+  if (ST.result && ST.animal) run(false);
+});
+$("tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) { ST.tab = b.dataset.tab; show(); } });
+$("gen").onclick = function () { run(true); };
+$("vary").onclick = function () { run(true); };
+$("cMain").onclick = function () { copy(ST.result && ST.result.main, "Prompt berhasil disalin."); };
+$("cNeg").onclick = function () { copy(ST.result && ST.result.neg, "Negative prompt berhasil disalin."); };
+$("cAll").onclick = function () { var r = ST.result; copy(r && (r.main + "\n\nNEGATIVE PROMPT:\n" + r.neg + "\n\nSETTINGS:\n" + r.set), "Semua berhasil disalin."); };
+$("reset").onclick = resetAll; $("sideReset").onclick = function () { resetAll(); view("gen"); };
+$("again").onclick = function () { ST.animal = null; select("animal", ""); $("animals").scrollIntoView({ behavior: "smooth" }); toast("Pilih hewan baru."); };
+$("burger").onclick = function () { side(true); }; $("shade").onclick = function () { side(false); };
+document.querySelectorAll("#side [data-view]").forEach(function (b) { b.onclick = function () { view(b.dataset.view); }; });
+["dur", "style", "cam", "time", "light", "snd", "lang"].forEach(function (k) {
+  $(k).addEventListener("change", function () { if (ST.result && ST.animal && ST.ratio) { ST.result = compose(); show(); } });
+});
+/* Manifest PWA dinamis (dukungan terbatas di Apps Script) */
+try {
+  var mf = { name: "FEEDING REALISTIC AI", short_name: "FeedingAI", display: "standalone", background_color: "#f3ecd9", theme_color: "#12332b", start_url: location.href };
+  var l = document.createElement("link"); l.rel = "manifest"; l.href = URL.createObjectURL(new Blob([JSON.stringify(mf)], { type: "application/json" })); document.head.appendChild(l);
+} catch (e) {}
+</script>
+</body>
+</html>
